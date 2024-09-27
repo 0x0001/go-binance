@@ -167,6 +167,7 @@ const (
 	UserDataEventTypeOrderTradeUpdate    UserDataEventType = "ORDER_TRADE_UPDATE"
 	UserDataEventTypeAccountConfigUpdate UserDataEventType = "ACCOUNT_CONFIG_UPDATE"
 	UserDataEventTypeTradeLite           UserDataEventType = "TRADE_LITE"
+	UserDataEventTypeCoinSwapOrder       UserDataEventType = "COIN_SWAP_ORDER"
 
 	UserDataEventReasonTypeDeposit             UserDataEventReasonType = "DEPOSIT"
 	UserDataEventReasonTypeWithdraw            UserDataEventReasonType = "WITHDRAW"

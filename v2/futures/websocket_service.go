@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -1017,6 +1018,9 @@ type WsUserDataEvent struct {
 
 	// TRADE_LITE
 	WsUserDataTradeLite
+
+	// COIN_SWAP_ORDER
+	WsUserDataCoinSwapOrder
 }
 
 type WsUserDataAccountConfigUpdate struct {
@@ -1063,6 +1067,42 @@ func (w *WsUserDataTradeLite) fromSimpleJson(j *simplejson.Json) (err error) {
 	return nil
 }
 
+type WsUserDataCoinSwapOrder struct {
+	OrderId    string //`json:"o"`
+	FromAsset  string `json:"qa"`
+	ToAsset    string //`json:"a"`
+	FromAmount string `json:"M"`
+	ToAmount   string //`json:"m"`
+
+	// TODO: The meaning of the following fields is unknown
+	p     string `json:"P"`
+	ma    string `json:"ma"`
+	sp    string `json:"sp"`
+	bp    string `json:"bp"`
+	time1 int64  //`json:"t"`
+	time2 int64  `json:"T"`
+}
+
+func (w *WsUserDataCoinSwapOrder) fromSimpleJson(j *simplejson.Json) (err error) {
+	// The data is wrapped in the `c` field
+	j = j.Get("c")
+
+	w.OrderId = j.Get("o").MustString()
+	w.FromAsset = j.Get("qa").MustString()
+	w.ToAsset = j.Get("a").MustString()
+	w.FromAmount = j.Get("m").MustString()
+	w.ToAmount = j.Get("M").MustString()
+
+	w.p = j.Get("p").MustString()
+	w.ma = j.Get("ma").MustString()
+	w.sp = j.Get("sp").MustString()
+	w.bp = j.Get("bp").MustString()
+	w.time1 = j.Get("t").MustInt64()
+	w.time2 = j.Get("T").MustInt64()
+
+	return nil
+}
+
 func (e *WsUserDataEvent) UnmarshalJSON(data []byte) error {
 	j, err := newJSON(data)
 	if err != nil {
@@ -1074,26 +1114,34 @@ func (e *WsUserDataEvent) UnmarshalJSON(data []byte) error {
 		e.TransactionTime = v.MustInt64()
 	}
 
-	eventMaps := map[UserDataEventType]any{
+	defaultMarshalMap := map[UserDataEventType]any{
 		UserDataEventTypeMarginCall:          &e.WsUserDataMarginCall,
 		UserDataEventTypeAccountUpdate:       &e.WsUserDataAccountUpdate,
 		UserDataEventTypeOrderTradeUpdate:    &e.WsUserDataOrderTradeUpdate,
 		UserDataEventTypeAccountConfigUpdate: &e.WsUserDataAccountConfigUpdate,
 	}
 
-	switch e.Event {
-	case UserDataEventTypeTradeLite:
-		return e.WsUserDataTradeLite.fromSimpleJson(j)
-	case UserDataEventTypeListenKeyExpired:
-		// noting
-	default:
-		if v, ok := eventMaps[e.Event]; ok {
-			if err := json.Unmarshal(data, v); err != nil {
-				return err
-			}
-		} else {
-			return fmt.Errorf("unexpected event type: %v", e.Event)
+	type fromSimpleJson interface {
+		fromSimpleJson(j *simplejson.Json) error
+	}
+
+	fromSimpleJsonMap := map[UserDataEventType]fromSimpleJson{
+		UserDataEventTypeTradeLite:     &e.WsUserDataTradeLite,
+		UserDataEventTypeCoinSwapOrder: &e.WsUserDataCoinSwapOrder,
+	}
+
+	if v, ok := fromSimpleJsonMap[e.Event]; ok {
+		if err := v.fromSimpleJson(j); err != nil {
+			return err
 		}
+	} else if v, ok := defaultMarshalMap[e.Event]; ok {
+		if err := json.Unmarshal(data, v); err != nil {
+			return err
+		}
+	} else if e.Event == UserDataEventTypeListenKeyExpired {
+		// noting
+	} else {
+		return fmt.Errorf("unexpected event type: %v", e.Event)
 	}
 	return nil
 }
@@ -1183,6 +1231,7 @@ func WsUserDataServe(listenKey string, handler WsUserDataHandler, errHandler Err
 		err := json.Unmarshal(message, event)
 		if err != nil {
 			errHandler(err)
+			fmt.Fprintf(os.Stderr, "unmarshal error: %v, the message is: %s", err, string(message))
 			return
 		}
 		handler(event)

@@ -1913,6 +1913,49 @@ func (s *websocketServiceTestSuite) TestWsUserDataServeTradeLite() {
 	s.testWsUserDataServe(data, expectedEvent)
 }
 
+func (s *websocketServiceTestSuite) TestWsUserDataServeCoinSwapOrder() {
+	data := []byte(`{
+    "e": "COIN_SWAP_ORDER",
+    "T": 1727424253415,
+    "E": 1727424253415,
+    "c": {
+        "o": "193804982065",
+        "a": "BNB",
+        "qa": "USDT",
+        "M": "0.00016374",
+        "m": "0.10000000",
+        "p": "0",
+        "ma": "0",
+        "sp": "",
+        "bp": "0",
+        "t": 1727424253414,
+        "T": 1727424253415,
+        "s": true
+    }
+}`)
+
+	expectedEvent := &WsUserDataEvent{
+		Event:           "COIN_SWAP_ORDER",
+		Time:            1727424253415,
+		TransactionTime: 1727424253415,
+		WsUserDataCoinSwapOrder: WsUserDataCoinSwapOrder{
+			OrderId:    "193804982065",
+			ToAsset:    "BNB",
+			FromAsset:  "USDT",
+			ToAmount:   "0.00016374",
+			FromAmount: "0.10000000",
+
+			p:     "0",
+			ma:    "0",
+			sp:    "",
+			bp:    "0",
+			time1: 1727424253414,
+			time2: 1727424253415,
+		},
+	}
+	s.testWsUserDataServe(data, expectedEvent)
+}
+
 func (s *websocketServiceTestSuite) assertUserDataEvent(e, a *WsUserDataEvent) {
 	r := s.r()
 	r.Equal(e.Event, a.Event, "Event")
@@ -1927,6 +1970,22 @@ func (s *websocketServiceTestSuite) assertUserDataEvent(e, a *WsUserDataEvent) {
 	s.assertOrderTradeUpdate(e.OrderTradeUpdate, a.OrderTradeUpdate)
 	s.assertAccountConfigUpdate(e.AccountConfigUpdate, a.AccountConfigUpdate)
 	s.assertTradeLite(e.WsUserDataTradeLite, a.WsUserDataTradeLite)
+	s.assertCoinSwapOrder(e.WsUserDataCoinSwapOrder, a.WsUserDataCoinSwapOrder)
+}
+
+func (s *websocketServiceTestSuite) assertCoinSwapOrder(e, a WsUserDataCoinSwapOrder) {
+	r := s.r()
+	r.Equal(e.OrderId, a.OrderId, "OrderId")
+	r.Equal(e.ToAsset, a.ToAsset, "ToAsset")
+	r.Equal(e.FromAsset, a.FromAsset, "FromAsset")
+	r.Equal(e.ToAmount, a.ToAmount, "ToAmount")
+	r.Equal(e.FromAmount, a.FromAmount, "FromAmount")
+	r.Equal(e.p, a.p, "P")
+	r.Equal(e.ma, a.ma, "MA")
+	r.Equal(e.sp, a.sp, "SP")
+	r.Equal(e.bp, a.bp, "BP")
+	r.Equal(e.time1, a.time1, "Time1")
+	r.Equal(e.time2, a.time2, "Time2")
 }
 
 func (s *websocketServiceTestSuite) assertTradeLite(e, a WsUserDataTradeLite) {
